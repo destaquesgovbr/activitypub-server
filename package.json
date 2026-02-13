@@ -1,0 +1,41 @@
+{
+	"name": "@destaquesgovbr/activitypub-server",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"engines": {
+		"node": ">=22"
+	},
+	"scripts": {
+		"build": "tsc",
+		"start": "node dist/index.js",
+		"dev": "tsx watch src/index.ts",
+		"test": "vitest run",
+		"test:unit": "vitest run --project unit",
+		"test:integration": "vitest run --project integration",
+		"test:e2e": "vitest run --project e2e",
+		"test:watch": "vitest --project unit",
+		"lint": "biome check .",
+		"lint:fix": "biome check --write .",
+		"format": "biome format --write .",
+		"seed": "tsx scripts/seed-actors.ts",
+		"migrate": "tsx scripts/migrate.ts"
+	},
+	"dependencies": {
+		"@fedify/fedify": "^1.10.3",
+		"@fedify/hono": "^1.10.3",
+		"@fedify/postgres": "^1.10.3",
+		"hono": "^4.11.9",
+		"postgres": "^3.4.8"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.3.15",
+		"@fedify/testing": "^1.10.3",
+		"@testcontainers/postgresql": "^11.11.0",
+		"@types/node": "^22.0.0",
+		"testcontainers": "^11.11.0",
+		"tsx": "^4.19.0",
+		"typescript": "^5.7.0",
+		"vitest": "^4.0.18"
+	}
+}
