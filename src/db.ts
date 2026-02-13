@@ -150,6 +150,25 @@ export async function markFailed(id: number, errorMessage: string): Promise<void
 	`;
 }
 
+export async function getPublishedItemsForActor(
+	actorIdentifier: string,
+	limit: number,
+	offset = 0,
+): Promise<{ items: PublishQueueRow[]; totalCount: number }> {
+	const sql = getPool();
+	const items = await sql<PublishQueueRow[]>`
+		SELECT * FROM ap_publish_queue
+		WHERE actor_identifier = ${actorIdentifier} AND status = 'published'
+		ORDER BY processed_at DESC
+		LIMIT ${limit} OFFSET ${offset}
+	`;
+	const [{ count }] = await sql<{ count: number }[]>`
+		SELECT COUNT(*)::int as count FROM ap_publish_queue
+		WHERE actor_identifier = ${actorIdentifier} AND status = 'published'
+	`;
+	return { items, totalCount: count };
+}
+
 // ---------------------------------------------------------------------------
 // Activities
 // ---------------------------------------------------------------------------

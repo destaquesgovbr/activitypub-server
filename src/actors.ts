@@ -16,10 +16,7 @@ export function registerActors(federation: Federation<void>) {
 		.setActorDispatcher("/ap/actors/{identifier}", actorDispatcher)
 		.setKeyPairsDispatcher(keyPairsDispatcher);
 
-	// Placeholder dispatchers — will be replaced with real logic in later phases
-	federation.setOutboxDispatcher("/ap/actors/{identifier}/outbox", (_ctx, _identifier) => ({
-		items: [],
-	}));
+	// Placeholder — will be replaced with real logic in later phases
 	federation.setFollowersDispatcher("/ap/actors/{identifier}/followers", (_ctx, _identifier) => ({
 		items: [],
 	}));

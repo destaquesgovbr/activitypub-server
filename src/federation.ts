@@ -8,6 +8,7 @@ import { PostgresKvStore, PostgresMessageQueue } from "@fedify/postgres";
 import { registerActors } from "./actors.js";
 import { getPool } from "./db.js";
 import { registerInbox } from "./inbox.js";
+import { registerOutbox } from "./outbox.js";
 
 const isTest = process.env.NODE_ENV === "test";
 
@@ -27,6 +28,7 @@ export function createFederation(): Federation<void> {
 			});
 
 	registerInbox(fedi);
+	registerOutbox(fedi);
 	registerActors(fedi);
 	return fedi;
 }
