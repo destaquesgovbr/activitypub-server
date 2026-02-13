@@ -1,4 +1,5 @@
 import { federation } from "@fedify/hono";
+import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { createFederation } from "./federation.js";
 import { createTriggerPublishHandler } from "./publisher.js";
@@ -20,11 +21,8 @@ app.post("/trigger-publish", createTriggerPublishHandler(fedi));
 if (nodeType === "worker") {
 	console.log("Starting federation worker (message queue processor)...");
 	fedi.startQueue();
-} else {
-	console.log(`Starting federation web on port ${port}...`);
 }
 
-export default {
-	port,
-	fetch: app.fetch,
-};
+serve({ fetch: app.fetch, port }, () => {
+	console.log(`Federation ${nodeType} listening on port ${port}`);
+});

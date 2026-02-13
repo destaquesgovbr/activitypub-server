@@ -32,6 +32,7 @@ export default defineConfig({
 					setupFiles: ["tests/helpers/setup.ts"],
 					pool: "forks",
 					singleFork: true,
+					fileParallelism: false,
 					testTimeout: 60_000,
 					hookTimeout: 60_000,
 				},

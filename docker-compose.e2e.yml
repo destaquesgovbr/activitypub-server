@@ -20,20 +20,25 @@ services:
     environment:
       NODE_TYPE: web
       DATABASE_URL: postgres://test:test@postgres:5432/federation_test
-      AP_DOMAIN: federation-server:3000
+      AP_DOMAIN: localhost:3000
       FEDERATION_AUTH_TOKEN: test-token-e2e
     ports:
       - "3000:3000"
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/health || exit 1"]
+      interval: 3s
+      timeout: 5s
+      retries: 15
 
   federation-worker:
     build: .
     environment:
       NODE_TYPE: worker
       DATABASE_URL: postgres://test:test@postgres:5432/federation_test
-      AP_DOMAIN: federation-server:3000
+      AP_DOMAIN: localhost:3000
     depends_on:
       postgres:
         condition: service_healthy
