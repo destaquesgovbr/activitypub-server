@@ -16,9 +16,7 @@ export function registerActors(federation: Federation<void>) {
 		.setActorDispatcher("/ap/actors/{identifier}", actorDispatcher)
 		.setKeyPairsDispatcher(keyPairsDispatcher);
 
-	// Register inbox/outbox/followers paths so ctx.getInboxUri() etc. work.
-	// Actual inbox handlers are added in Phase 3.
-	federation.setInboxListeners("/ap/actors/{identifier}/inbox", "/ap/inbox");
+	// Placeholder dispatchers — will be replaced with real logic in later phases
 	federation.setOutboxDispatcher("/ap/actors/{identifier}/outbox", (_ctx, _identifier) => ({
 		items: [],
 	}));

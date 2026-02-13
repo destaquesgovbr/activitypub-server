@@ -7,6 +7,7 @@ import {
 import { PostgresKvStore, PostgresMessageQueue } from "@fedify/postgres";
 import { registerActors } from "./actors.js";
 import { getPool } from "./db.js";
+import { registerInbox } from "./inbox.js";
 
 const isTest = process.env.NODE_ENV === "test";
 
@@ -25,6 +26,7 @@ export function createFederation(): Federation<void> {
 				manuallyStartQueue: nodeType === "web",
 			});
 
+	registerInbox(fedi);
 	registerActors(fedi);
 	return fedi;
 }
