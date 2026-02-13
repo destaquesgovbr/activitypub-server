@@ -4,15 +4,17 @@ import postgres from "postgres";
 
 let container: { stop(): Promise<void> } | null = null;
 let sql: postgres.Sql;
+let setupCount = 0;
 
 export async function setupTestDatabase() {
+	setupCount++;
+	if (sql) return { sql, connectionString: "" };
+
 	const externalUrl = process.env.TEST_DATABASE_URL;
 
 	if (externalUrl) {
-		// Use external Postgres (docker-compose or CI service)
 		sql = postgres(externalUrl);
 	} else {
-		// Use testcontainers (CI / Docker available)
 		const { PostgreSqlContainer } = await import("@testcontainers/postgresql");
 		const started = await new PostgreSqlContainer("postgres:15")
 			.withDatabase("federation_test")
@@ -28,6 +30,8 @@ export async function setupTestDatabase() {
 }
 
 export async function teardownTestDatabase() {
+	setupCount--;
+	if (setupCount > 0) return;
 	if (sql) await sql.end();
 	if (container) await container.stop();
 }
