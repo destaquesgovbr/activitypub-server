@@ -17,6 +17,9 @@ importers:
       '@fedify/postgres':
         specifier: ^1.10.3
         version: 1.10.3(@fedify/fedify@1.10.3)(postgres@3.4.8)
+      '@js-temporal/polyfill':
+        specifier: ^0.5.1
+        version: 0.5.1
       hono:
         specifier: ^4.11.9
         version: 4.11.9

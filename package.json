@@ -25,6 +25,7 @@
 		"@fedify/fedify": "^1.10.3",
 		"@fedify/hono": "^1.10.3",
 		"@fedify/postgres": "^1.10.3",
+		"@js-temporal/polyfill": "^0.5.1",
 		"hono": "^4.11.9",
 		"postgres": "^3.4.8"
 	},
