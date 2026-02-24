@@ -55,6 +55,7 @@ jobs:
         run: |
           docker buildx build \
             --platform linux/amd64 \
+            --provenance=false --sbom=false \
             -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/server:${{ github.sha }} \
             -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/server:latest \
             --push \
