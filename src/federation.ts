@@ -15,6 +15,9 @@ const isTest = process.env.NODE_ENV === "test";
 export function createFederation(): Federation<void> {
 	const nodeType = process.env.NODE_TYPE ?? "web";
 
+	const apDomain = process.env.AP_DOMAIN;
+	const origin = apDomain ? `https://${apDomain}` : undefined;
+
 	const fedi = isTest
 		? createFedifyFederation<void>({
 				kv: new MemoryKvStore(),
@@ -22,6 +25,7 @@ export function createFederation(): Federation<void> {
 				manuallyStartQueue: true,
 			})
 		: createFedifyFederation<void>({
+				origin,
 				kv: new PostgresKvStore(getPool()),
 				queue: new PostgresMessageQueue(getPool()),
 				manuallyStartQueue: nodeType === "web",
