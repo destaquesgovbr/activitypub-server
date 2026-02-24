@@ -1,8 +1,21 @@
+import { configure, getConsoleSink } from "@logtape/logtape";
 import { federation } from "@fedify/hono";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { createFederation } from "./federation.js";
 import { createTriggerPublishHandler } from "./publisher.js";
+
+await configure({
+	sinks: { console: getConsoleSink() },
+	filters: {},
+	loggers: [
+		{
+			category: "fedify",
+			sinks: ["console"],
+			lowestLevel: "info",
+		},
+	],
+});
 
 const nodeType = process.env.NODE_TYPE ?? "web";
 const port = Number(process.env.PORT ?? 3000);

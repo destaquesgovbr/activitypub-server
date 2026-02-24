@@ -8,7 +8,7 @@ import {
 	Organization,
 	type RequestContext,
 } from "@fedify/fedify";
-import { type ActorRow, getActorByIdentifier } from "./db.js";
+import { type ActorRow, getActorByIdentifier, getActiveFollowers } from "./db.js";
 import { importEd25519KeyPairFromJwk, importRsaKeyPairFromJwk } from "./keys.js";
 
 export function registerActors(federation: Federation<void>) {
@@ -16,10 +16,24 @@ export function registerActors(federation: Federation<void>) {
 		.setActorDispatcher("/ap/actors/{identifier}", actorDispatcher)
 		.setKeyPairsDispatcher(keyPairsDispatcher);
 
-	// Placeholder — will be replaced with real logic in later phases
-	federation.setFollowersDispatcher("/ap/actors/{identifier}/followers", (_ctx, _identifier) => ({
-		items: [],
-	}));
+	federation.setFollowersDispatcher(
+		"/ap/actors/{identifier}/followers",
+		async (_ctx, identifier) => {
+			const actor = await getActorByIdentifier(identifier);
+			if (!actor) return { items: [] };
+
+			const followers = await getActiveFollowers(actor.id);
+			return {
+				items: followers.map((f) => ({
+					id: new URL(f.follower_uri),
+					inboxId: new URL(f.follower_inbox_uri),
+					endpoints: f.follower_shared_inbox_uri
+						? { sharedInbox: new URL(f.follower_shared_inbox_uri) }
+						: null,
+				})),
+			};
+		},
+	);
 }
 
 async function actorDispatcher(ctx: RequestContext<void>, identifier: string) {
