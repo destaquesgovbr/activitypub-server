@@ -1,6 +1,6 @@
-import { configure, getConsoleSink } from "@logtape/logtape";
 import { federation } from "@fedify/hono";
 import { serve } from "@hono/node-server";
+import { configure, getConsoleSink } from "@logtape/logtape";
 import { Hono } from "hono";
 import { createFederation } from "./federation.js";
 import { createTriggerPublishHandler } from "./publisher.js";

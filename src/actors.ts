@@ -8,7 +8,7 @@ import {
 	Organization,
 	type RequestContext,
 } from "@fedify/fedify";
-import { type ActorRow, getActorByIdentifier, getActiveFollowers } from "./db.js";
+import { type ActorRow, getActiveFollowers, getActorByIdentifier } from "./db.js";
 import { importEd25519KeyPairFromJwk, importRsaKeyPairFromJwk } from "./keys.js";
 
 export function registerActors(federation: Federation<void>) {
