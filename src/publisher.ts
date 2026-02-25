@@ -25,10 +25,22 @@ export interface PublishResult {
 	errors: string[];
 }
 
+function parseNewsPayload(payload: Record<string, unknown>): NewsRow {
+	return {
+		unique_id: payload.unique_id as string,
+		title: payload.title as string,
+		content_html: payload.content_html as string,
+		summary: (payload.summary as string) ?? null,
+		image_url: (payload.image_url as string) ?? null,
+		tags: (payload.tags as string[]) ?? [],
+		published_at: new Date(payload.published_at as string),
+		canonical_url: payload.canonical_url as string,
+	};
+}
+
 export async function processPublishQueue(
 	federation: Federation<void>,
 	limit = 100,
-	fetchNews?: (uniqueId: string) => Promise<NewsRow | null>,
 ): Promise<PublishResult> {
 	const domain = process.env.AP_DOMAIN ?? "localhost";
 	const items = await getPendingPublishQueue(limit);
@@ -45,17 +57,17 @@ export async function processPublishQueue(
 				continue;
 			}
 
-			const news = fetchNews ? await fetchNews(item.news_unique_id) : null;
-			if (!news) {
-				await markFailed(item.id, `News article not found: ${item.news_unique_id}`);
+			if (!item.news_payload) {
+				await markFailed(item.id, `Missing news_payload for: ${item.news_unique_id}`);
 				result.failed++;
-				result.errors.push(`News article not found: ${item.news_unique_id}`);
+				result.errors.push(`Missing news_payload for: ${item.news_unique_id}`);
 				continue;
 			}
 
+			const news = parseNewsPayload(item.news_payload);
 			const activity = buildArticleActivity(news, item.actor_identifier, domain);
 
-			const ctx = federation.createContext(new URL(`https://${domain}`), undefined as void);
+			const ctx = federation.createContext(new URL(`https://${domain}`), undefined as undefined);
 			await ctx.sendActivity({ identifier: item.actor_identifier }, "followers", activity, {
 				preferSharedInbox: true,
 			});

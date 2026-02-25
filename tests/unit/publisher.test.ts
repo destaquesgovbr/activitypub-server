@@ -22,6 +22,17 @@ const mockedGetActor = vi.mocked(getActorByIdentifier);
 const mockedMarkPublished = vi.mocked(markPublished);
 const mockedMarkFailed = vi.mocked(markFailed);
 
+const TEST_NEWS_PAYLOAD = {
+	unique_id: "abc123",
+	title: "Test Article",
+	content_html: "<p>Test</p>",
+	summary: "Test summary",
+	image_url: null,
+	tags: [],
+	published_at: "2026-02-12T14:00:00Z",
+	canonical_url: "https://destaques.gov.br/artigos/abc123",
+};
+
 describe("processPublishQueue", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -45,6 +56,7 @@ describe("processPublishQueue", () => {
 				id: 1,
 				news_unique_id: "abc",
 				actor_identifier: "unknown",
+				news_payload: TEST_NEWS_PAYLOAD,
 				status: "pending",
 				error_message: null,
 				queued_at: new Date(),
@@ -61,12 +73,13 @@ describe("processPublishQueue", () => {
 		expect(mockedMarkFailed).toHaveBeenCalledWith(1, expect.stringContaining("Actor not found"));
 	});
 
-	it("marks item as failed when news not found", async () => {
+	it("marks item as failed when news_payload is null", async () => {
 		mockedGetQueue.mockResolvedValue([
 			{
 				id: 2,
 				news_unique_id: "missing",
 				actor_identifier: "agricultura",
+				news_payload: null,
 				status: "pending",
 				error_message: null,
 				queued_at: new Date(),
@@ -81,22 +94,22 @@ describe("processPublishQueue", () => {
 
 		const { processPublishQueue } = await import("../../src/publisher.js");
 		const mockFedi = { createContext: vi.fn() } as never;
-		const fetchNews = vi.fn().mockResolvedValue(null);
-		const result = await processPublishQueue(mockFedi, 100, fetchNews);
+		const result = await processPublishQueue(mockFedi, 100);
 
 		expect(result.failed).toBe(1);
 		expect(mockedMarkFailed).toHaveBeenCalledWith(
 			2,
-			expect.stringContaining("News article not found"),
+			expect.stringContaining("Missing news_payload"),
 		);
 	});
 
-	it("publishes successfully when all data found", async () => {
+	it("publishes successfully when news_payload is present", async () => {
 		mockedGetQueue.mockResolvedValue([
 			{
 				id: 3,
 				news_unique_id: "abc123",
 				actor_identifier: "agricultura",
+				news_payload: TEST_NEWS_PAYLOAD,
 				status: "pending",
 				error_message: null,
 				queued_at: new Date(),
@@ -116,19 +129,8 @@ describe("processPublishQueue", () => {
 			createContext: vi.fn().mockReturnValue(mockCtx),
 		} as never;
 
-		const fetchNews = vi.fn().mockResolvedValue({
-			unique_id: "abc123",
-			title: "Test Article",
-			content_html: "<p>Test</p>",
-			summary: "Test summary",
-			image_url: null,
-			tags: [],
-			published_at: new Date("2026-02-12T14:00:00Z"),
-			canonical_url: "https://destaques.gov.br/artigos/abc123",
-		});
-
 		const { processPublishQueue } = await import("../../src/publisher.js");
-		const result = await processPublishQueue(mockFedi, 100, fetchNews);
+		const result = await processPublishQueue(mockFedi, 100);
 
 		expect(result.published).toBe(1);
 		expect(result.failed).toBe(0);
@@ -147,6 +149,7 @@ describe("processPublishQueue", () => {
 				id: 4,
 				news_unique_id: "abc",
 				actor_identifier: "agricultura",
+				news_payload: TEST_NEWS_PAYLOAD,
 				status: "pending",
 				error_message: null,
 				queued_at: new Date(),
@@ -164,19 +167,8 @@ describe("processPublishQueue", () => {
 			createContext: vi.fn().mockReturnValue(mockCtx),
 		} as never;
 
-		const fetchNews = vi.fn().mockResolvedValue({
-			unique_id: "abc",
-			title: "Test",
-			content_html: "<p>Test</p>",
-			summary: null,
-			image_url: null,
-			tags: [],
-			published_at: new Date(),
-			canonical_url: "https://example.com/abc",
-		});
-
 		const { processPublishQueue } = await import("../../src/publisher.js");
-		const result = await processPublishQueue(mockFedi, 100, fetchNews);
+		const result = await processPublishQueue(mockFedi, 100);
 
 		expect(result.failed).toBe(1);
 		expect(mockedMarkFailed).toHaveBeenCalledWith(4, "Network error");
