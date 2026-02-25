@@ -66,10 +66,24 @@ export async function seedActor(params: {
 	return row.id as number;
 }
 
-export async function enqueuePublish(newsUniqueId: string, actorIdentifier: string) {
+export async function enqueuePublish(
+	newsUniqueId: string,
+	actorIdentifier: string,
+	newsPayload?: Record<string, unknown>,
+) {
+	const payload = newsPayload ?? {
+		unique_id: newsUniqueId,
+		title: `Test article ${newsUniqueId}`,
+		content_html: "<p>Test content</p>",
+		summary: null,
+		image_url: null,
+		tags: [],
+		published_at: new Date().toISOString(),
+		canonical_url: `https://destaques.gov.br/artigos/${newsUniqueId}`,
+	};
 	await sql`
-		INSERT INTO ap_publish_queue (news_unique_id, actor_identifier)
-		VALUES (${newsUniqueId}, ${actorIdentifier})
+		INSERT INTO ap_publish_queue (news_unique_id, actor_identifier, news_payload)
+		VALUES (${newsUniqueId}, ${actorIdentifier}, ${sql.json(payload)})
 		ON CONFLICT (news_unique_id, actor_identifier) DO NOTHING
 	`;
 }

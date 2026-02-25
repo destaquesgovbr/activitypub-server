@@ -4,7 +4,6 @@ import {
 	enqueuePublish,
 	getE2EAuthToken,
 	getE2EServerUrl,
-	getPublishQueueStatus,
 	seedActor,
 	setupE2E,
 	teardownE2E,
@@ -58,7 +57,7 @@ describe("e2e: publish flow", () => {
 		expect(body.failed).toBe(0);
 	});
 
-	it("trigger-publish processes queued items (fails without fetchNews)", async () => {
+	it("trigger-publish processes queued item with news_payload", async () => {
 		await enqueuePublish("e2e-news-001", "agricultura");
 
 		const res = await fetch(`${BASE}/trigger-publish`, {
@@ -67,12 +66,9 @@ describe("e2e: publish flow", () => {
 		});
 		expect(res.status).toBe(200);
 		const body = await res.json();
-		// Without a fetchNews function wired, items fail with "News article not found"
 		expect(body.processed).toBe(1);
-		expect(body.failed).toBe(1);
-
-		const status = await getPublishQueueStatus("e2e-news-001");
-		expect(status.status).toBe("failed");
-		expect(status.error_message).toContain("News article not found");
+		// Activity is sent (may succeed or fail depending on federation context),
+		// but it should not fail due to missing payload
+		expect(body.errors.every((e: string) => !e.includes("Missing news_payload"))).toBe(true);
 	});
 });

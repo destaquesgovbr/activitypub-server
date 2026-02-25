@@ -118,6 +118,7 @@ export interface PublishQueueRow {
 	id: number;
 	news_unique_id: string;
 	actor_identifier: string;
+	news_payload: Record<string, unknown> | null;
 	status: "pending" | "processing" | "published" | "failed";
 	error_message: string | null;
 	queued_at: Date;

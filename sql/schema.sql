@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS ap_publish_queue (
     id SERIAL PRIMARY KEY,
     news_unique_id VARCHAR(32) NOT NULL,
     actor_identifier VARCHAR(150) NOT NULL,
+    news_payload JSONB,
     status VARCHAR(20) DEFAULT 'pending'
         CHECK (status IN ('pending', 'processing', 'published', 'failed')),
     error_message TEXT,

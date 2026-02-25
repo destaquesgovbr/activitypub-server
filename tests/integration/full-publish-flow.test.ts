@@ -1,5 +1,4 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import type { NewsRow } from "../../src/article-builder.js";
 import { setPool } from "../../src/db.js";
 import { processPublishQueue } from "../../src/publisher.js";
 import { cleanTables, getSql, setupTestDatabase, teardownTestDatabase } from "../helpers/db.js";
@@ -30,11 +29,30 @@ describe("full publish flow (integration)", () => {
 		return row.id as number;
 	}
 
-	async function enqueueItem(newsUniqueId: string, actorIdentifier: string) {
+	function makeNewsPayload(uniqueId: string, overrides: Record<string, unknown> = {}) {
+		return {
+			unique_id: uniqueId,
+			title: `Article ${uniqueId}`,
+			content_html: "<p>content</p>",
+			summary: null,
+			image_url: null,
+			tags: [],
+			published_at: new Date().toISOString(),
+			canonical_url: `https://destaques.gov.br/artigos/${uniqueId}`,
+			...overrides,
+		};
+	}
+
+	async function enqueueItem(
+		newsUniqueId: string,
+		actorIdentifier: string,
+		newsPayload?: Record<string, unknown>,
+	) {
 		const sql = getSql();
+		const payload = newsPayload ?? makeNewsPayload(newsUniqueId);
 		await sql`
-			INSERT INTO ap_publish_queue (news_unique_id, actor_identifier)
-			VALUES (${newsUniqueId}, ${actorIdentifier})
+			INSERT INTO ap_publish_queue (news_unique_id, actor_identifier, news_payload)
+			VALUES (${newsUniqueId}, ${actorIdentifier}, ${sql.json(payload)})
 		`;
 	}
 
@@ -47,34 +65,22 @@ describe("full publish flow (integration)", () => {
 		return { federation, sendActivity };
 	}
 
-	function makeFetchNews(articles: Map<string, NewsRow>) {
-		return async (uniqueId: string): Promise<NewsRow | null> => {
-			return articles.get(uniqueId) ?? null;
-		};
-	}
-
 	it("processes a single item end-to-end: pending → published", async () => {
 		await seedActor("agricultura");
-		await enqueueItem("news-001", "agricultura");
+		const payload = makeNewsPayload("news-001", {
+			title: "Safra recorde de soja",
+			content_html: "<p>O Brasil bateu recorde na safra de soja.</p>",
+			summary: "Produção de soja atinge novo patamar",
+			image_url: "https://destaques.gov.br/images/soja.jpg",
+			tags: ["agricultura", "soja"],
+			published_at: "2026-02-12T10:00:00Z",
+			canonical_url: "https://destaques.gov.br/artigos/news-001",
+		});
+		await enqueueItem("news-001", "agricultura", payload);
 
 		const { federation, sendActivity } = makeMockFederation();
-		const articles = new Map<string, NewsRow>([
-			[
-				"news-001",
-				{
-					unique_id: "news-001",
-					title: "Safra recorde de soja",
-					content_html: "<p>O Brasil bateu recorde na safra de soja.</p>",
-					summary: "Produção de soja atinge novo patamar",
-					image_url: "https://destaques.gov.br/images/soja.jpg",
-					tags: ["agricultura", "soja"],
-					published_at: new Date("2026-02-12T10:00:00Z"),
-					canonical_url: "https://destaques.gov.br/artigos/news-001",
-				},
-			],
-		]);
 
-		const result = await processPublishQueue(federation, 100, makeFetchNews(articles));
+		const result = await processPublishQueue(federation, 100);
 
 		expect(result.processed).toBe(1);
 		expect(result.published).toBe(1);
@@ -93,7 +99,7 @@ describe("full publish flow (integration)", () => {
 		await enqueueItem("news-002", "nonexistent-actor");
 
 		const { federation } = makeMockFederation();
-		const result = await processPublishQueue(federation, 100, makeFetchNews(new Map()));
+		const result = await processPublishQueue(federation, 100);
 
 		expect(result.processed).toBe(1);
 		expect(result.failed).toBe(1);
@@ -106,20 +112,23 @@ describe("full publish flow (integration)", () => {
 		expect(row.error_message).toContain("Actor not found");
 	});
 
-	it("marks item as failed when news article not found", async () => {
+	it("marks item as failed when news_payload is null", async () => {
 		await seedActor("agricultura");
-		await enqueueItem("missing-news", "agricultura");
+		const sql = getSql();
+		await sql`
+			INSERT INTO ap_publish_queue (news_unique_id, actor_identifier, news_payload)
+			VALUES ('missing-payload', 'agricultura', NULL)
+		`;
 
 		const { federation } = makeMockFederation();
-		const result = await processPublishQueue(federation, 100, makeFetchNews(new Map()));
+		const result = await processPublishQueue(federation, 100);
 
 		expect(result.failed).toBe(1);
 
-		const sql = getSql();
 		const [row] =
-			await sql`SELECT status, error_message FROM ap_publish_queue WHERE news_unique_id = 'missing-news'`;
+			await sql`SELECT status, error_message FROM ap_publish_queue WHERE news_unique_id = 'missing-payload'`;
 		expect(row.status).toBe("failed");
-		expect(row.error_message).toContain("News article not found");
+		expect(row.error_message).toContain("Missing news_payload");
 	});
 
 	it("processes multiple items, some succeed and some fail", async () => {
@@ -130,36 +139,8 @@ describe("full publish flow (integration)", () => {
 		await enqueueItem("news-c", "nonexistent");
 
 		const { federation, sendActivity } = makeMockFederation();
-		const articles = new Map<string, NewsRow>([
-			[
-				"news-a",
-				{
-					unique_id: "news-a",
-					title: "Artigo A",
-					content_html: "<p>Conteúdo A</p>",
-					summary: null,
-					image_url: null,
-					tags: [],
-					published_at: new Date(),
-					canonical_url: "https://destaques.gov.br/artigos/news-a",
-				},
-			],
-			[
-				"news-b",
-				{
-					unique_id: "news-b",
-					title: "Artigo B",
-					content_html: "<p>Conteúdo B</p>",
-					summary: null,
-					image_url: null,
-					tags: [],
-					published_at: new Date(),
-					canonical_url: "https://destaques.gov.br/artigos/news-b",
-				},
-			],
-		]);
 
-		const result = await processPublishQueue(federation, 100, makeFetchNews(articles));
+		const result = await processPublishQueue(federation, 100);
 
 		expect(result.processed).toBe(3);
 		expect(result.published).toBe(2);
@@ -181,21 +162,8 @@ describe("full publish flow (integration)", () => {
 		await enqueueItem("news-3", "agricultura");
 
 		const { federation } = makeMockFederation();
-		const articles = new Map<string, NewsRow>();
-		for (const id of ["news-1", "news-2", "news-3"]) {
-			articles.set(id, {
-				unique_id: id,
-				title: `Article ${id}`,
-				content_html: "<p>content</p>",
-				summary: null,
-				image_url: null,
-				tags: [],
-				published_at: new Date(),
-				canonical_url: `https://destaques.gov.br/artigos/${id}`,
-			});
-		}
 
-		const result = await processPublishQueue(federation, 2, makeFetchNews(articles));
+		const result = await processPublishQueue(federation, 2);
 
 		expect(result.processed).toBe(2);
 		expect(result.published).toBe(2);
@@ -211,29 +179,14 @@ describe("full publish flow (integration)", () => {
 		await seedActor("agricultura");
 		const sql = getSql();
 		await sql`
-			INSERT INTO ap_publish_queue (news_unique_id, actor_identifier, status, processed_at)
-			VALUES ('already-done', 'agricultura', 'published', NOW())
+			INSERT INTO ap_publish_queue (news_unique_id, actor_identifier, news_payload, status, processed_at)
+			VALUES ('already-done', 'agricultura', ${sql.json(makeNewsPayload("already-done"))}, 'published', NOW())
 		`;
 		await enqueueItem("news-new", "agricultura");
 
 		const { federation, sendActivity } = makeMockFederation();
-		const articles = new Map<string, NewsRow>([
-			[
-				"news-new",
-				{
-					unique_id: "news-new",
-					title: "New article",
-					content_html: "<p>new</p>",
-					summary: null,
-					image_url: null,
-					tags: [],
-					published_at: new Date(),
-					canonical_url: "https://destaques.gov.br/artigos/news-new",
-				},
-			],
-		]);
 
-		const result = await processPublishQueue(federation, 100, makeFetchNews(articles));
+		const result = await processPublishQueue(federation, 100);
 
 		expect(result.processed).toBe(1);
 		expect(result.published).toBe(1);
@@ -249,23 +202,7 @@ describe("full publish flow (integration)", () => {
 			createContext: vi.fn().mockReturnValue({ sendActivity }),
 		} as never;
 
-		const articles = new Map<string, NewsRow>([
-			[
-				"news-fail",
-				{
-					unique_id: "news-fail",
-					title: "Article",
-					content_html: "<p>content</p>",
-					summary: null,
-					image_url: null,
-					tags: [],
-					published_at: new Date(),
-					canonical_url: "https://destaques.gov.br/artigos/news-fail",
-				},
-			],
-		]);
-
-		const result = await processPublishQueue(federation, 100, makeFetchNews(articles));
+		const result = await processPublishQueue(federation, 100);
 
 		expect(result.failed).toBe(1);
 		expect(result.errors).toContain("news-fail: Connection refused");
