@@ -43,7 +43,7 @@ describe("processPublishQueue", () => {
 
 		const { processPublishQueue } = await import("../../src/publisher.js");
 		const mockFedi = { createContext: vi.fn() } as never;
-		const result = await processPublishQueue(mockFedi, 100);
+		const result = await processPublishQueue(mockFedi);
 
 		expect(result.processed).toBe(0);
 		expect(result.published).toBe(0);
@@ -67,7 +67,7 @@ describe("processPublishQueue", () => {
 
 		const { processPublishQueue } = await import("../../src/publisher.js");
 		const mockFedi = { createContext: vi.fn() } as never;
-		const result = await processPublishQueue(mockFedi, 100);
+		const result = await processPublishQueue(mockFedi);
 
 		expect(result.failed).toBe(1);
 		expect(mockedMarkFailed).toHaveBeenCalledWith(1, expect.stringContaining("Actor not found"));
@@ -94,7 +94,7 @@ describe("processPublishQueue", () => {
 
 		const { processPublishQueue } = await import("../../src/publisher.js");
 		const mockFedi = { createContext: vi.fn() } as never;
-		const result = await processPublishQueue(mockFedi, 100);
+		const result = await processPublishQueue(mockFedi);
 
 		expect(result.failed).toBe(1);
 		expect(mockedMarkFailed).toHaveBeenCalledWith(
@@ -130,7 +130,7 @@ describe("processPublishQueue", () => {
 		} as never;
 
 		const { processPublishQueue } = await import("../../src/publisher.js");
-		const result = await processPublishQueue(mockFedi, 100);
+		const result = await processPublishQueue(mockFedi);
 
 		expect(result.published).toBe(1);
 		expect(result.failed).toBe(0);
@@ -168,7 +168,7 @@ describe("processPublishQueue", () => {
 		} as never;
 
 		const { processPublishQueue } = await import("../../src/publisher.js");
-		const result = await processPublishQueue(mockFedi, 100);
+		const result = await processPublishQueue(mockFedi);
 
 		expect(result.failed).toBe(1);
 		expect(mockedMarkFailed).toHaveBeenCalledWith(4, "Network error");

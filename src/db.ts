@@ -125,13 +125,12 @@ export interface PublishQueueRow {
 	processed_at: Date | null;
 }
 
-export async function getPendingPublishQueue(limit: number): Promise<PublishQueueRow[]> {
+export async function getPendingPublishQueue(): Promise<PublishQueueRow[]> {
 	const sql = getPool();
 	return sql<PublishQueueRow[]>`
 		SELECT * FROM ap_publish_queue
 		WHERE status = 'pending'
 		ORDER BY queued_at
-		LIMIT ${limit}
 	`;
 }
 

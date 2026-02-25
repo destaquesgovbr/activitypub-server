@@ -80,7 +80,7 @@ describe("full publish flow (integration)", () => {
 
 		const { federation, sendActivity } = makeMockFederation();
 
-		const result = await processPublishQueue(federation, 100);
+		const result = await processPublishQueue(federation);
 
 		expect(result.processed).toBe(1);
 		expect(result.published).toBe(1);
@@ -99,7 +99,7 @@ describe("full publish flow (integration)", () => {
 		await enqueueItem("news-002", "nonexistent-actor");
 
 		const { federation } = makeMockFederation();
-		const result = await processPublishQueue(federation, 100);
+		const result = await processPublishQueue(federation);
 
 		expect(result.processed).toBe(1);
 		expect(result.failed).toBe(1);
@@ -121,7 +121,7 @@ describe("full publish flow (integration)", () => {
 		`;
 
 		const { federation } = makeMockFederation();
-		const result = await processPublishQueue(federation, 100);
+		const result = await processPublishQueue(federation);
 
 		expect(result.failed).toBe(1);
 
@@ -140,7 +140,7 @@ describe("full publish flow (integration)", () => {
 
 		const { federation, sendActivity } = makeMockFederation();
 
-		const result = await processPublishQueue(federation, 100);
+		const result = await processPublishQueue(federation);
 
 		expect(result.processed).toBe(3);
 		expect(result.published).toBe(2);
@@ -155,26 +155,6 @@ describe("full publish flow (integration)", () => {
 		expect(rows[2]).toMatchObject({ news_unique_id: "news-c", status: "failed" });
 	});
 
-	it("respects limit parameter", async () => {
-		await seedActor("agricultura");
-		await enqueueItem("news-1", "agricultura");
-		await enqueueItem("news-2", "agricultura");
-		await enqueueItem("news-3", "agricultura");
-
-		const { federation } = makeMockFederation();
-
-		const result = await processPublishQueue(federation, 2);
-
-		expect(result.processed).toBe(2);
-		expect(result.published).toBe(2);
-
-		// One item should still be pending
-		const sql = getSql();
-		const [{ count }] =
-			await sql`SELECT COUNT(*)::int as count FROM ap_publish_queue WHERE status = 'pending'`;
-		expect(count).toBe(1);
-	});
-
 	it("skips already-published items", async () => {
 		await seedActor("agricultura");
 		const sql = getSql();
@@ -186,7 +166,7 @@ describe("full publish flow (integration)", () => {
 
 		const { federation, sendActivity } = makeMockFederation();
 
-		const result = await processPublishQueue(federation, 100);
+		const result = await processPublishQueue(federation);
 
 		expect(result.processed).toBe(1);
 		expect(result.published).toBe(1);
@@ -202,7 +182,7 @@ describe("full publish flow (integration)", () => {
 			createContext: vi.fn().mockReturnValue({ sendActivity }),
 		} as never;
 
-		const result = await processPublishQueue(federation, 100);
+		const result = await processPublishQueue(federation);
 
 		expect(result.failed).toBe(1);
 		expect(result.errors).toContain("news-fail: Connection refused");
