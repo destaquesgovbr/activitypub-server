@@ -24,3 +24,8 @@ coverage/
 
 # Docker
 gotosocial-data/
+
+# Astro / Airflow local
+airflow/.env
+airflow/airflow_settings.yaml
+airflow/.astro/
