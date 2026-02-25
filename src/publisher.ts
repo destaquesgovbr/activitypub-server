@@ -37,9 +37,7 @@ function parseNewsPayload(payload: Record<string, unknown>): NewsRow {
 	};
 }
 
-export async function processPublishQueue(
-	federation: Federation<void>,
-): Promise<PublishResult> {
+export async function processPublishQueue(federation: Federation<void>): Promise<PublishResult> {
 	const domain = process.env.AP_DOMAIN ?? "localhost";
 	const items = await getPendingPublishQueue();
 	const result: PublishResult = { processed: 0, published: 0, failed: 0, errors: [] };
