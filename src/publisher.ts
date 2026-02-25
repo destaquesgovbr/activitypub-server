@@ -12,8 +12,7 @@ export function createTriggerPublishHandler(federation: Federation<void>) {
 			return c.json({ error: "Unauthorized" }, 401);
 		}
 
-		const limit = Number(c.req.query("limit") ?? "100");
-		const result = await processPublishQueue(federation, limit);
+		const result = await processPublishQueue(federation);
 		return c.json(result);
 	};
 }
@@ -40,10 +39,9 @@ function parseNewsPayload(payload: Record<string, unknown>): NewsRow {
 
 export async function processPublishQueue(
 	federation: Federation<void>,
-	limit = 100,
 ): Promise<PublishResult> {
 	const domain = process.env.AP_DOMAIN ?? "localhost";
-	const items = await getPendingPublishQueue(limit);
+	const items = await getPendingPublishQueue();
 	const result: PublishResult = { processed: 0, published: 0, failed: 0, errors: [] };
 
 	for (const item of items) {
