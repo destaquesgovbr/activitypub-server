@@ -31,6 +31,7 @@ BATCH_SIZE = 500
     schedule="*/10 * * * *",
     start_date=datetime(2025, 1, 1),
     catchup=False,
+    max_active_runs=1,
     tags=["federation", "activitypub"],
     default_args={
         "owner": "activitypub-server",
