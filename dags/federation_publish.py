@@ -47,13 +47,18 @@ def federation_publish_dag():
     @task
     def detect_and_enqueue() -> dict:
         """Fetch articles in batches, enqueue each, update watermark per batch."""
+        from psycopg2.extras import execute_values
+
         govbr_hook = PostgresHook(postgres_conn_id="postgres_default")
         fed_hook = PostgresHook(postgres_conn_id="federation_postgres")
+        fed_conn = fed_hook.get_conn()
+        fed_cur = fed_conn.cursor()
 
         # Read current watermark from federation DB
-        watermark = fed_hook.get_first(
+        fed_cur.execute(
             "SELECT last_processed_at FROM ap_sync_watermark WHERE id = 1"
         )
+        watermark = fed_cur.fetchone()
 
         if watermark:
             last_processed_at = watermark[0]
@@ -92,9 +97,8 @@ def federation_publish_dag():
                 logging.info(f"No more articles after batch {batch_num - 1}.")
                 break
 
-            logging.info(f"Batch {batch_num}: {len(articles)} articles")
-
-            batch_queued = 0
+            # Build all queue rows for this batch
+            rows = []
             max_created_at = None
 
             for row in articles:
@@ -115,7 +119,6 @@ def federation_publish_dag():
                     "canonical_url": url,
                 })
 
-                # Determine target actors
                 actors = ["portal"]
                 if agency_key:
                     actors.append(agency_key)
@@ -123,51 +126,55 @@ def federation_publish_dag():
                     actors.append(f"tema-{theme_code}")
 
                 for actor in actors:
-                    fed_hook.run(
-                        """
-                        INSERT INTO ap_publish_queue
-                            (news_unique_id, actor_identifier, news_payload)
-                        VALUES (%s, %s, %s::jsonb)
-                        ON CONFLICT (news_unique_id, actor_identifier) DO NOTHING
-                        """,
-                        parameters=[unique_id, actor, news_payload],
-                    )
-                    batch_queued += 1
+                    rows.append((unique_id, actor, news_payload))
 
                 if max_created_at is None or created_at > max_created_at:
                     max_created_at = created_at
 
-            # Update watermark after each batch
+            # Single batch INSERT
+            execute_values(
+                fed_cur,
+                """INSERT INTO ap_publish_queue
+                       (news_unique_id, actor_identifier, news_payload)
+                   VALUES %s
+                   ON CONFLICT (news_unique_id, actor_identifier) DO NOTHING""",
+                rows,
+                template="(%s, %s, %s::jsonb)",
+            )
+
+            # Update watermark
             if max_created_at:
-                fed_hook.run(
-                    """
-                    INSERT INTO ap_sync_watermark
-                        (id, last_processed_at, last_run_at, articles_queued)
-                    VALUES (1, %s, NOW(), %s)
-                    ON CONFLICT (id) DO UPDATE SET
-                        last_processed_at = EXCLUDED.last_processed_at,
-                        last_run_at = EXCLUDED.last_run_at,
-                        articles_queued = EXCLUDED.articles_queued
-                    """,
-                    parameters=[max_created_at, batch_queued],
+                fed_cur.execute(
+                    """INSERT INTO ap_sync_watermark
+                           (id, last_processed_at, last_run_at, articles_queued)
+                       VALUES (1, %s, NOW(), %s)
+                       ON CONFLICT (id) DO UPDATE SET
+                           last_processed_at = EXCLUDED.last_processed_at,
+                           last_run_at = EXCLUDED.last_run_at,
+                           articles_queued = EXCLUDED.articles_queued""",
+                    [max_created_at, len(rows)],
                 )
                 last_processed_at = max_created_at
 
+            fed_conn.commit()
+
             total_articles += len(articles)
-            total_queued += batch_queued
+            total_queued += len(rows)
 
             logging.info(
-                f"Batch {batch_num} done: {batch_queued} queued, "
-                f"watermark advanced to {max_created_at}"
+                f"Batch {batch_num}: {len(articles)} articles, "
+                f"{len(rows)} queued, watermark={max_created_at}"
             )
 
-            # If batch was smaller than BATCH_SIZE, we've caught up
             if len(articles) < BATCH_SIZE:
                 break
 
+        fed_cur.close()
+        fed_conn.close()
+
         logging.info(
-            f"Finished: {total_articles} articles, "
-            f"{total_queued} queue entries in {batch_num} batches"
+            f"Done: {total_articles} articles, "
+            f"{total_queued} queue entries, {batch_num} batches"
         )
         return {"articles": total_articles, "queued": total_queued}
 
