@@ -1,8 +1,8 @@
-astro
+.astro
 .git
 .env
 airflow_settings.yaml
-logs/
+logs
 .venv
-airflow.db
-airflow.cfg
+*.db
+*.cfg

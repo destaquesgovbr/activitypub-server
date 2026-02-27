@@ -1,0 +1,12 @@
+# Gerado automaticamente pelo template airflow-dgb.
+# NÃO editar manualmente. Para atualizar: copier update
+_src_path: /private/var/folders/h5/q3w1nyh93lgd82kcdjnnvqxc0000gn/T/copier._vcs.clone.o63v9nn7
+_commit: 
+project_name: activitypub-server
+astro_runtime_version: 3.0-14
+python_requirements: "apache-airflow-providers-postgres\u003e=5.10.0\npsycopg2-binary\u003e=2.9.9\nrequests\u003e=2.32.0"
+postgres_connection: "postgresql://govbrnews_app:PASSWORD@34.39.145.55:5432/govbrnews"
+extra_env_vars: "AIRFLOW_CONN_FEDERATION_POSTGRES=postgresql://federation:federation@federation-db:5432/federation\n\n# Airflow Variables\nAIRFLOW_VAR_FEDERATION_WEB_URL=http://host.docker.internal:3000\nAIRFLOW_VAR_FEDERATION_AUTH_TOKEN=dev-token\nAIRFLOW_VAR_FEDERATION_INITIAL_WATERMARK=2026-02-20T00:00:00+00:00"
+has_plugins: False
+plugin_modules: ""
+airflowignore_extras: "src"
