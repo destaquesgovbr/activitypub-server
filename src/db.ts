@@ -134,6 +134,23 @@ export async function getPendingPublishQueue(): Promise<PublishQueueRow[]> {
 	`;
 }
 
+export async function insertPublishQueueEntries(
+	entries: {
+		newsUniqueId: string;
+		actorIdentifier: string;
+		newsPayload: Record<string, unknown>;
+	}[],
+): Promise<number> {
+	if (entries.length === 0) return 0;
+	const sql = getPool();
+	const rows = await sql`
+		INSERT INTO ap_publish_queue (news_unique_id, actor_identifier, news_payload)
+		VALUES ${sql(entries.map((e) => [e.newsUniqueId, e.actorIdentifier, JSON.stringify(e.newsPayload)]))}
+		ON CONFLICT (news_unique_id, actor_identifier) DO NOTHING
+	`;
+	return rows.count;
+}
+
 export async function markPublished(id: number): Promise<void> {
 	const sql = getPool();
 	await sql`

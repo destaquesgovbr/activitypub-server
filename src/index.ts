@@ -4,6 +4,7 @@ import { configure, getConsoleSink } from "@logtape/logtape";
 import { Hono } from "hono";
 import { createFederation } from "./federation.js";
 import { createTriggerPublishHandler } from "./publisher.js";
+import { createPubSubHandler } from "./pubsub-handler.js";
 
 await configure({
 	sinks: { console: getConsoleSink() },
@@ -30,6 +31,7 @@ app.get("/health", (c) => {
 });
 
 app.post("/trigger-publish", createTriggerPublishHandler(fedi));
+app.post("/process", createPubSubHandler(fedi));
 
 if (nodeType === "worker") {
 	console.log("Starting federation worker (message queue processor)...");
