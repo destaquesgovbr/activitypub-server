@@ -5,7 +5,8 @@
 The ActivityPub Federation Server publishes government news from
 DestaquesGovBr to the fediverse (Mastodon, Pleroma, Misskey, etc).
 
-It exposes **182 actors** (1 portal + 156 agencies + 25 themes) that
+It exposes one actor for the portal, one per agency and one per L1 theme
+(24 themes after tema 26: 01–21, 24, 25 and 26) that
 remote users can follow. When new articles are scraped, an Airflow DAG
 detects them, enqueues them for publishing, and the server delivers them
 to every follower's inbox.
@@ -323,7 +324,7 @@ Remote accounts following our actors.
 
 | Table                | Purpose                                      | Key columns                                |
 |----------------------|----------------------------------------------|--------------------------------------------|
-| `ap_actors`          | 182 actors (portal, agencies, themes)        | identifier, actor_type, RSA+Ed25519 keys   |
+| `ap_actors`          | Actors (portal, agencies, L1 themes)         | identifier, actor_type, RSA+Ed25519 keys   |
 | `ap_followers`       | Remote accounts following our actors         | actor_id, follower_uri, shared_inbox_uri   |
 | `ap_publish_queue`   | Items waiting to be published                | news_unique_id, actor_identifier, payload  |
 | `ap_activities`      | Log of published ActivityPub activities      | activity_uri, actor_id, news_unique_id     |
@@ -359,12 +360,19 @@ Each actor maps to an ActivityPub type:
 |------------|----------------|-------|--------------------|
 | `portal`   | `Application`  | 1     | `portal`           |
 | `agency`   | `Organization` | 156   | `mcom`, `anvisa`   |
-| `theme`    | `Group`        | 25    | `tema-03`, `tema-20`|
+| `theme`    | `Group`        | 24    | `tema-03`, `tema-26`|
 
 Each actor has:
 - **RSA-2048** key pair for HTTP Signatures
 - **Ed25519** key pair for Object Integrity Proofs
 - Keys stored as JWK in the database
+
+Theme actors follow the current L1 themes of `themes/themes_tree.yaml`. An article is
+published by `tema-<L1>` of its most specific theme (`26.01.03` → `tema-26`). When the
+theme tree changes, `pnpm seed` creates the missing L1 actors and deactivates
+(`is_active = FALSE`) the actors of L1 themes that left the tree (e.g. `tema-22`,
+`tema-23`); nothing is deleted, so keys and followers survive and a theme that comes
+back is reactivated. Run `pnpm seed --dry-run` first to see the plan.
 
 ### Endpoints per actor
 

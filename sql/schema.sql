@@ -1,7 +1,7 @@
 -- ActivityPub Federation Schema
 -- Database: federation (separate Cloud SQL instance)
 
--- Actors: 182 total (1 portal + 156 agencies + 25 themes)
+-- Actors: 1 portal + 1 per agency + 1 per L1 theme (24 L1 after tema 26; removed L1 themes stay with is_active = FALSE)
 CREATE TABLE IF NOT EXISTS ap_actors (
     id SERIAL PRIMARY KEY,
     identifier VARCHAR(150) UNIQUE NOT NULL,
