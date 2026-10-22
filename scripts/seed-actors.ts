@@ -1,11 +1,15 @@
 /**
  * Seed script: reads agencies.yaml + themes_tree.yaml, generates key pairs,
- * and inserts 182 actors into the ap_actors table.
+ * and creates the actors in the ap_actors table (1 portal + agencies + 1 per L1 theme).
  *
- * Usage: DATABASE_URL=postgres://... pnpm seed
- *   or:  DATABASE_URL=postgres://... tsx scripts/seed-actors.ts
+ * Usage: DATABASE_URL=postgres://... pnpm seed [--dry-run]
+ *   or:  DATABASE_URL=postgres://... tsx scripts/seed-actors.ts [--dry-run]
  *
- * Idempotent: uses ON CONFLICT to skip existing actors (keys not overwritten).
+ * Idempotent: existing actors are skipped (keys not overwritten).
+ * Theme actors follow the current theme tree (src/theme-actors.ts): missing L1
+ * actors are created (e.g. tema-26), actors of L1 themes that left the tree are
+ * deactivated (e.g. tema-22/23, is_active = FALSE, nothing deleted) and actors of
+ * themes that came back are reactivated. --dry-run prints the plan and writes nothing.
  */
 
 import { readFileSync } from "node:fs";
@@ -13,6 +17,13 @@ import { join } from "node:path";
 import postgres from "postgres";
 import { parse } from "yaml";
 import { generateEd25519KeyPair, generateRsaKeyPair } from "../src/keys.js";
+import {
+	type ActorKeys,
+	applyThemeActorSync,
+	getThemeActorStates,
+	parseThemeLabels,
+	planThemeActorSync,
+} from "../src/theme-actors.js";
 
 const AGENCIES_PATH =
 	process.env.AGENCIES_YAML ?? join(import.meta.dirname, "../../agencies/agencies.yaml");
@@ -26,7 +37,7 @@ interface AgencyEntry {
 	url: string;
 }
 
-async function generateKeys() {
+async function generateKeys(): Promise<ActorKeys> {
 	const rsa = await generateRsaKeyPair();
 	const rsaPublicJwk = await crypto.subtle.exportKey("jwk", rsa.publicKey);
 	const rsaPrivateJwk = await crypto.subtle.exportKey("jwk", rsa.privateKey);
@@ -36,20 +47,8 @@ async function generateKeys() {
 	return { rsaPublicJwk, rsaPrivateJwk, edPublicJwk, edPrivateJwk };
 }
 
-function parseThemeLabels(yamlContent: string): Map<string, string> {
-	const themes = new Map<string, string>();
-	// themes_tree.yaml has format: "01 - Economia e Finanças:"
-	// We only want L1 themes (2-digit codes)
-	for (const line of yamlContent.split("\n")) {
-		const match = line.match(/^(\d{2}) - (.+):$/);
-		if (match) {
-			themes.set(match[1], match[2]);
-		}
-	}
-	return themes;
-}
-
 async function main() {
+	const dryRun = process.argv.includes("--dry-run");
 	const databaseUrl = process.env.DATABASE_URL;
 	if (!databaseUrl) {
 		console.error("DATABASE_URL environment variable is required");
@@ -98,21 +97,29 @@ async function main() {
 		});
 	}
 
-	// 3. Theme actors (L1 only)
-	for (const [code, label] of themeLabels) {
-		actors.push({
-			identifier: `tema-${code}`,
-			actor_type: "theme",
-			display_name: label,
-			summary: `Notícias sobre ${label}`,
-			agency_key: null,
-			theme_code: code,
-		});
-	}
+	// 3. Theme actors (L1 only): planned against the current tree, before any write
+	//    (planThemeActorSync refuses an empty tree instead of deactivating every theme).
+	const themePlan = planThemeActorSync(await getThemeActorStates(sql), themeLabels);
+	console.log(
+		`Theme actors: ${themeLabels.size} L1 in the tree; create [${themePlan.create.map((t) => t.identifier).join(", ")}], deactivate [${themePlan.deactivate.join(", ")}], reactivate [${themePlan.reactivate.join(", ")}]`,
+	);
 
 	console.log(
-		`Seeding ${actors.length} actors (1 portal + ${Object.keys(agenciesData.sources).length} agencies + ${themeLabels.size} themes)...`,
+		`${dryRun ? "[dry-run] Would seed" : "Seeding"} ${actors.length} actors (1 portal + ${Object.keys(agenciesData.sources).length} agencies)...`,
 	);
+
+	if (dryRun) {
+		const missing: string[] = [];
+		for (const actor of actors) {
+			const existing =
+				await sql`SELECT id FROM ap_actors WHERE identifier = ${actor.identifier}`;
+			if (existing.length === 0) missing.push(actor.identifier);
+		}
+		console.log(`[dry-run] Missing portal/agency actors: ${missing.length} [${missing.join(", ")}]`);
+		console.log("[dry-run] Nothing written.");
+		await sql.end();
+		return;
+	}
 
 	let created = 0;
 	let skipped = 0;
@@ -130,7 +137,7 @@ async function main() {
 
 		await sql`
 			INSERT INTO ap_actors (identifier, actor_type, display_name, summary, agency_key, theme_code, rsa_public_key_jwk, rsa_private_key_jwk, ed25519_public_key_jwk, ed25519_private_key_jwk)
-			VALUES (${actor.identifier}, ${actor.actor_type}, ${actor.display_name}, ${actor.summary}, ${actor.agency_key}, ${actor.theme_code}, ${sql.json(keys.rsaPublicJwk)}, ${sql.json(keys.rsaPrivateJwk)}, ${sql.json(keys.edPublicJwk)}, ${sql.json(keys.edPrivateJwk)})
+			VALUES (${actor.identifier}, ${actor.actor_type}, ${actor.display_name}, ${actor.summary}, ${actor.agency_key}, ${actor.theme_code}, ${sql.json(keys.rsaPublicJwk as postgres.JSONValue)}, ${sql.json(keys.rsaPrivateJwk as postgres.JSONValue)}, ${sql.json(keys.edPublicJwk as postgres.JSONValue)}, ${sql.json(keys.edPrivateJwk as postgres.JSONValue)})
 		`;
 		created++;
 
@@ -139,8 +146,12 @@ async function main() {
 		}
 	}
 
+	const themes = await applyThemeActorSync(sql, themePlan, generateKeys);
+
 	console.log(`\nDone! Created: ${created}, Skipped (already exist): ${skipped}`);
-	console.log(`Total actors in DB: ${created + skipped}`);
+	console.log(
+		`Theme actors: created ${themes.created}, deactivated ${themes.deactivated}, reactivated ${themes.reactivated}`,
+	);
 
 	await sql.end();
 }

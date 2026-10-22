@@ -58,7 +58,7 @@ pnpm install
 # Subir PostgreSQL local (porta 5433)
 docker compose up -d
 
-# Rodar seed de atores (gera chaves e insere 185 atores)
+# Rodar seed de atores (gera chaves; 1 portal + órgãos + 1 por tema L1)
 DATABASE_URL=postgres://federation:federation@localhost:5433/federation pnpm seed
 
 # Iniciar servidor em modo dev (hot reload)
@@ -136,7 +136,10 @@ FEDERATION_DB_URL=$(gcloud secrets versions access latest \
 # Aplicar schema
 psql "$FEDERATION_DB_URL" -f sql/schema.sql
 
-# Seed de atores (precisa dos YAMLs de agencies e themes no mesmo workspace)
+# Seed de atores (precisa dos YAMLs de agencies e themes no mesmo workspace).
+# Sincroniza os atores de tema com a árvore: cria os L1 novos (ex.: tema-26) e
+# desativa os que saíram (ex.: tema-22/23, is_active = FALSE). Rode antes o dry-run.
+DATABASE_URL="$FEDERATION_DB_URL" pnpm seed --dry-run
 DATABASE_URL="$FEDERATION_DB_URL" pnpm seed
 ```
 
