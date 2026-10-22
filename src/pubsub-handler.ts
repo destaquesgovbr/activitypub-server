@@ -3,6 +3,7 @@ import type { Context as HonoContext } from "hono";
 import { insertPublishQueueEntries } from "./db.js";
 import { fetchArticle } from "./govbrnews-db.js";
 import { processPublishQueue } from "./publisher.js";
+import { themeActorIdentifier } from "./theme-actors.js";
 
 interface PubSubEnvelope {
 	message: {
@@ -16,6 +17,26 @@ interface PubSubEnvelope {
 interface EnrichedPayload {
 	unique_id: string;
 	most_specific_theme_code?: string | null;
+}
+
+/**
+ * Atores que publicam um artigo: portal, órgão e o ator do L1 do tema.
+ * O evento traz o código mais específico (ex.: "26.01.03"), mas só existem
+ * atores de tema L1 ("tema-26"); usar o código cru gerava "Actor not found".
+ */
+export function resolveActorIdentifiers(
+	agencyKey: string | null | undefined,
+	mostSpecificThemeCode: string | null | undefined,
+): string[] {
+	const actors = ["portal"];
+	if (agencyKey) {
+		actors.push(agencyKey);
+	}
+	const themeActor = themeActorIdentifier(mostSpecificThemeCode);
+	if (themeActor) {
+		actors.push(themeActor);
+	}
+	return actors;
 }
 
 export function createPubSubHandler(federation: Federation<void>) {
@@ -39,14 +60,8 @@ export function createPubSubHandler(federation: Federation<void>) {
 				return c.json({ status: "ignored", reason: "article not found" }, 200);
 			}
 
-			// Determine actors: portal + agency + theme
-			const actors: string[] = ["portal"];
-			if (article.agency_key) {
-				actors.push(article.agency_key);
-			}
-			if (data.most_specific_theme_code) {
-				actors.push(`tema-${data.most_specific_theme_code}`);
-			}
+			// Determine actors: portal + agency + theme (L1)
+			const actors = resolveActorIdentifiers(article.agency_key, data.most_specific_theme_code);
 
 			// Build news_payload (same format as the DAG used)
 			const newsPayload = {
