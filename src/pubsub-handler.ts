@@ -21,18 +21,24 @@ interface EnrichedPayload {
 
 /**
  * Atores que publicam um artigo: portal, órgão e o ator do L1 do tema.
- * O evento traz o código mais específico (ex.: "26.01.03"), mas só existem
- * atores de tema L1 ("tema-26"); usar o código cru gerava "Actor not found".
+ *
+ * O tema vem do L1 canônico da notícia (`news.theme_l1_id`), como no DAG antigo
+ * e como portal e Typesense mostram. O prefixo do código mais específico do
+ * evento (ex.: "26.01.03" → "tema-26") é só fallback: o classificador às vezes
+ * devolve hierarquias inconsistentes (L1 15 com mais específico 24.01), e aí
+ * o prefixo apontaria para o ator errado.
  */
 export function resolveActorIdentifiers(
 	agencyKey: string | null | undefined,
+	themeL1Code: string | null | undefined,
 	mostSpecificThemeCode: string | null | undefined,
 ): string[] {
 	const actors = ["portal"];
 	if (agencyKey) {
 		actors.push(agencyKey);
 	}
-	const themeActor = themeActorIdentifier(mostSpecificThemeCode);
+	const themeActor =
+		themeActorIdentifier(themeL1Code) ?? themeActorIdentifier(mostSpecificThemeCode);
 	if (themeActor) {
 		actors.push(themeActor);
 	}
@@ -60,8 +66,12 @@ export function createPubSubHandler(federation: Federation<void>) {
 				return c.json({ status: "ignored", reason: "article not found" }, 200);
 			}
 
-			// Determine actors: portal + agency + theme (L1)
-			const actors = resolveActorIdentifiers(article.agency_key, data.most_specific_theme_code);
+			// Atores: portal + órgão + tema (L1 canônico; prefixo do evento como fallback)
+			const actors = resolveActorIdentifiers(
+				article.agency_key,
+				article.theme_l1_code,
+				data.most_specific_theme_code,
+			);
 
 			// Build news_payload (same format as the DAG used)
 			const newsPayload = {

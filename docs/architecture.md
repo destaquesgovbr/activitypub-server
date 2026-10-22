@@ -368,7 +368,10 @@ Each actor has:
 - Keys stored as JWK in the database
 
 Theme actors follow the current L1 themes of `themes/themes_tree.yaml`. An article is
-published by `tema-<L1>` of its most specific theme (`26.01.03` → `tema-26`). When the
+published by `tema-<L1>` of its canonical L1 (`news.theme_l1_id`, the L1 the portal and
+Typesense show). Only when the article has no L1 does the handler fall back to the L1
+prefix of the event's most specific theme (`26.01.03` → `tema-26`): the classifier
+sometimes returns an inconsistent hierarchy (L1 `15` with most specific `24.01`). When the
 theme tree changes, `pnpm seed` creates the missing L1 actors and deactivates
 (`is_active = FALSE`) the actors of L1 themes that left the tree (e.g. `tema-22`,
 `tema-23`); nothing is deleted, so keys and followers survive and a theme that comes
